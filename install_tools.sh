@@ -112,7 +112,6 @@ echo "Set shell to zsh"
 chsh -s /usr/bin/zsh
 chsh -s /usr/bin/zsh coder
 
-echo "Add auto completion" >> /etc/zsh/zshrc
 echo "export ZSH_CACHE_DIR=/tmp"
 echo "plugins=(git docker ansible helm kubectl terraform)" >> /etc/zsh/zshrc
 echo "ZSH_THEME=robbyrussell" >> /etc/zsh/zshrc

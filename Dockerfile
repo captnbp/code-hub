@@ -8,6 +8,7 @@ USER    root
 RUN     /usr/local/bin/install_tools.sh
 
 USER    coder
+ENV     ZSH_CACHE_DIR=/tmp
 
 ENTRYPOINT      ["dumb-init", "fixuid", "-q", "docker-entrypoint.sh"]
 CMD     ["code-server"]
