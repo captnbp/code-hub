@@ -48,13 +48,17 @@ echo "helm installed into $HELM_INSTALL_DIR/helm"
 
 echo "Install Ansible"
 apt-get update >/dev/null
-apt-get install -y software-properties-common
+apt-get install -y software-properties-common gpg
 add-apt-repository -y ppa:ansible/ansible
 apt-get update >/dev/null
 apt-get install -y ansible
 
 echo "Install tools"
-apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline
+apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline htop
+
+echo "Install Oh My Zsh"
+sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+mv /root/.oh-my-zsh /usr/share/oh-my-zsh
 
 echo "Install Packer"
 latest_release_url="https://github.com/hashicorp/packer/releases"
@@ -106,6 +110,17 @@ chmod 755 /usr/local/bin/hadolint
 
 echo "Set shell to zsh"
 chsh -s /bin/zsh
+chsh -s /bin/zsh coder
+
+echo "Add auto completion"
+echo "plugins=(git docker ansible helm kubectl terraform)" >> /etc/zsh/zshrc
+echo "ZSH_THEME=robbyrussell" >> /etc/zsh/zshrc
+echo "export ZSH=/usr/share/oh-my-zsh" >> /etc/zsh/zshrc
+echo "source \$ZSH/oh-my-zsh.sh" >> /etc/zsh/zshrc
+echo "autoload -U +X bashcompinit && bashcompinit" >> /etc/zsh/zshrc
+echo "complete -o nospace -C /usr/local/bin/packer packer" >> /etc/zsh/zshrc
+echo "complete -o nospace -C /usr/local/bin/terraform terraform" >> /etc/zsh/zshrc
+echo "complete -o nospace -C /usr/local/bin/vault vault" >> /etc/zsh/zshrc
 
 echo "Install docker"
 /usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
