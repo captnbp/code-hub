@@ -32,7 +32,10 @@ docker-build-code-server:
         export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}-code-server
         export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
       fi
+      ls -all
+      ls -all ci
     - cd code-server
+    - ls -all
     - ../ci/build.sh
 
 docker-build-nginx:
