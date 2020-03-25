@@ -19,10 +19,10 @@ include:
 
 docker-build-code-server:
   # Official docker image.
-  image: docker:latest
+  image: "registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image/master:stable"
   stage: build
   services:
-    - docker:dind
+    - docker:19.03.5-dind
   script:
     - |
       if [[ -z "$CI_COMMIT_TAG" ]]; then
@@ -32,18 +32,15 @@ docker-build-code-server:
         export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}-code-server
         export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
       fi
-      ls -all
-      ls -all ci
     - cd code-server
-    - ls -all
-    - ../ci/build.sh
+    - /build/build.sh
 
 docker-build-nginx:
   # Official docker image.
-  image: docker:latest
+  image: "registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image/master:stable"
   stage: build
   services:
-    - docker:dind
+    - docker:19.03.5-dind
   script:
     - |
       if [[ -z "$CI_COMMIT_TAG" ]]; then
@@ -54,5 +51,5 @@ docker-build-nginx:
         export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
       fi
     - cd nginx
-    - ../ci/build.sh
+    - /build/build.sh
 ...
