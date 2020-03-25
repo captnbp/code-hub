@@ -1,0 +1,42 @@
+proxy:
+  secretToken: ""
+singleuser:
+  # Mandatory for Bare Metal installation
+  cloudMetadata:
+    enabled: true
+  # Defines the default image
+  image:
+    name: registry.gitlab.com/captnbp/code-server-hub/master-code-server
+    tag: 77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+  cpu:
+    limit: 4
+    guarantee: 1
+  memory:
+    limit: 8G
+    guarantee: 1G
+  profileList:
+    - description: code-server
+      default: true
+      display_name: VScode
+      kubespawner_override:
+        cmd:
+          - code-server
+        image: registry.gitlab.com/captnbp/code-server-hub/master-code-server:77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+        extra_containers:
+          - name: code-hub-nginx
+            image: registry.gitlab.com/captnbp/code-server-hub/master-nginx:77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+  storage:
+    type: dynamic
+    extraLabels: {}
+    extraVolumes: []
+    extraVolumeMounts: []
+    static:
+      pvcName:
+      subPath: '{username}'
+    capacity: 20Gi
+    homeMountPath: /home/coder
+    dynamic:
+      storageClass:
+      pvcNameTemplate: claim-{username}{servername}
+      volumeNameTemplate: volume-{username}{servername}
+      storageAccessModes: [ReadWriteOnce]
