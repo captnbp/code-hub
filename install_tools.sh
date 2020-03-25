@@ -46,15 +46,9 @@ echo "Preparing to install helm into ${HELM_INSTALL_DIR}"
 cp "$HELM_TMP_BIN" "$HELM_INSTALL_DIR"
 echo "helm installed into $HELM_INSTALL_DIR/helm"
 
-echo "Install Ansible"
-apt-get update >/dev/null
-apt-get install -y software-properties-common gpg
-add-apt-repository -y ppa:ansible/ansible
-apt-get update >/dev/null
-apt-get install -y ansible
-
 echo "Install tools"
-apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline htop
+apt-get update >/dev/null
+apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline htop software-properties-common gpg
 
 echo "Install Oh My Zsh"
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -130,11 +124,11 @@ latest_release_url="https://github.com/docker/compose/releases"
 TAG=$(curl -Ls $latest_release_url | grep 'href="/docker/compose/releases/tag/' | grep -v no-underline | grep -v rc | head -n 1 | cut -d '"' -f 2 | awk '{n=split($NF,a,"/");print a[n]}' | awk 'a !~ $0{print}; {a=$0}')
 curl -L https://github.com/docker/compose/releases/download/${TAG}/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
-apt-get install -y python-docker python3-docker
+apt-get install -y python3-docker
 
-echo "Install ansible-modules-hashivault"
-apt-get install -y python-pip
-pip install ansible-modules-hashivault
+echo "Install Ansible and ansible-modules-hashivault"
+apt-get install -y python3-pip
+pip3 install ansible ansible-modules-hashivault
 
 echo "Cleaning"
 rm -rf /var/lib/apt/lists/*
