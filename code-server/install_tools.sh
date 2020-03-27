@@ -102,6 +102,10 @@ TAG=$(curl -Ls $latest_release_url | grep 'href="/hadolint/hadolint/releases/tag
 wget "https://github.com/hadolint/hadolint/releases/download/${TAG}/hadolint-Linux-x86_64" -O /usr/local/bin/hadolint >/dev/null
 chmod 755 /usr/local/bin/hadolint
 
+echo "Install Jfrog CLI"
+wget https://api.bintray.com/content/jfrog/jfrog-cli-go/\$latest/jfrog-cli-linux-amd64/jfrog?bt_package=jfrog-cli-linux-amd64 -O /usr/local/bin/jfrog
+chmod 755 /usr/local/bin/jfrog
+
 echo "Set shell to zsh"
 chsh -s /usr/bin/zsh
 chsh -s /usr/bin/zsh coder
