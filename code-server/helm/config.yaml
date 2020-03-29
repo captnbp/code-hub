@@ -1,13 +1,13 @@
 proxy:
-  secretToken: ""
+  secretToken: "${JUPYTERHUB_PROXY_TOKEN}"
 singleuser:
   # Mandatory for Bare Metal installation
   cloudMetadata:
     enabled: true
   # Defines the default image
   image:
-    name: registry.gitlab.com/captnbp/code-server-hub/master-code-server
-    tag: 77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+    name: ${CI_APPLICATION_REPOSITORY}-code-server
+    tag: ${CI_COMMIT_SHA}
   cpu:
     limit: 4
     guarantee: 1
@@ -21,10 +21,10 @@ singleuser:
       kubespawner_override:
         cmd:
           - code-server
-        image: registry.gitlab.com/captnbp/code-server-hub/master-code-server:77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+        image: ${CI_APPLICATION_REPOSITORY}-code-server:${CI_COMMIT_SHA}
         extra_containers:
           - name: code-hub-nginx
-            image: registry.gitlab.com/captnbp/code-server-hub/master-nginx:77888a2d4c8e70d4a3581deb1551a75b5ff7d371
+            image: ${CI_APPLICATION_REPOSITORY}-nginx:${CI_COMMIT_SHA}
   storage:
     type: dynamic
     extraLabels: {}

@@ -14,6 +14,7 @@ variables:
 stages:
   - build
   - test
+  - deploy
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/gitlab/ci/templates/Jobs/Code-Quality.gitlab-ci.yml
 
@@ -51,4 +52,26 @@ docker-build-nginx:
       fi
     - cd nginx
     - /build/build.sh
+
+deploy:
+  stage: deploy
+  image: captnbp/gitlab-ci-image:latest
+  variables:
+    RELEASE: jhub
+    NAMESPACE: jhub
+  script:
+    - |
+      if [[ -z "$CI_COMMIT_TAG" ]]; then
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG}
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_SHA}
+      else
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
+      fi
+    - helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+    - helm repo update
+    - export JUPYTERHUB_PROXY_TOKEN=$(openssl rand -hex 32)
+    - envsubst < code-server/helm/config.yaml > config.yaml
+    - helm upgrade --install $RELEASE jupyterhub/jupyterhub --namespace $NAMESPACE --version=1.1.0 --values config.yaml
+
 ...
