@@ -137,6 +137,7 @@ deploy:
   variables:
     RELEASE: jhub
     NAMESPACE: jhub
+    JUPYTERHUB_CHART_VERSION: 0.8.2
   script:
     - |
       if [[ -z "$CI_COMMIT_TAG" ]]; then
@@ -150,7 +151,9 @@ deploy:
     - helm repo update
     - export JUPYTERHUB_PROXY_TOKEN=$(openssl rand -hex 32)
     - envsubst < code-server/helm/config.yaml > config.yaml
-    - helm upgrade --install $RELEASE jupyterhub/jupyterhub --namespace $NAMESPACE --version=1.1.0 --values config.yaml
+    - helm upgrade --install $RELEASE jupyterhub/jupyterhub --namespace $NAMESPACE --version=$JUPYTERHUB_CHART_VERSION --values config.yaml
+    - |
+      kubectl patch deploy -n $NAMESPACE hub --type json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value": ["bash", "-c", "\nmkdir -p ~/hotfix\ncp -r /usr/local/lib/python3.6/dist-packages/kubespawner ~/hotfix\nls -R ~/hotfix\npatch ~/hotfix/kubespawner/spawner.py << EOT\n72c72\n<             key=lambda x: x.last_timestamp,\n---\n>             key=lambda x: x.last_timestamp and x.last_timestamp.timestamp() or 0.,\nEOT\n\nPYTHONPATH=$HOME/hotfix jupyterhub --config /srv/jupyterhub_config.py --upgrade-db\n"]}]'
   tags:
     - server
 
