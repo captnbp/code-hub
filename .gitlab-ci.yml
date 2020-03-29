@@ -6,17 +6,20 @@ variables:
   # KUBE_INGRESS_BASE_DOMAIN: domain.example.com
 
   DOCKER_DRIVER: overlay2
-
   ROLLOUT_RESOURCE_TYPE: deployment
-
   DOCKER_TLS_CERTDIR: ""  # https://gitlab.com/gitlab-org/gitlab-runner/issues/4501
+
+  CS_MAJOR_VERSION: 2
+  CONTAINER_SCANNING_DISABLED: "False"
 
 stages:
   - build
   - test
   - deploy
+
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/gitlab/ci/templates/Jobs/Code-Quality.gitlab-ci.yml
+  #- template: Container-Scanning.gitlab-ci.yml # https://docs.gitlab.com/ee/user/application_security/container_scanning/
 
 docker-build-code-server:
   stage: build
@@ -34,6 +37,8 @@ docker-build-code-server:
       fi
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context $CI_PROJECT_DIR/code-server --dockerfile Dockerfile --destination $CI_APPLICATION_REPOSITORY:$CI_APPLICATION_TAG
+  tags:
+    - server
 
 docker-build-nginx:
   # Official docker image.
@@ -52,10 +57,83 @@ docker-build-nginx:
       fi
     - cd nginx
     - /build/build.sh
+  tags:
+    - server
+
+container_scanning_nginx:
+  stage: test
+  image: registry.gitlab.com/gitlab-org/security-products/analyzers/klar:$CS_MAJOR_VERSION
+  variables:
+    # By default, use the latest clair vulnerabilities database, however, allow it to be overridden here with a specific image
+    # to enable container scanning to run offline, or to provide a consistent list of vulnerabilities for integration testing purposes
+    CLAIR_DB_IMAGE_TAG: "latest"
+    CLAIR_DB_IMAGE: "arminc/clair-db:$CLAIR_DB_IMAGE_TAG"
+    # Override the GIT_STRATEGY variable in your `.gitlab-ci.yml` file and set it to `fetch` if you want to provide a `clair-whitelist.yml`
+    # file. See https://docs.gitlab.com/ee/user/application_security/container_scanning/index.html#overriding-the-container-scanning-template
+    # for details
+    GIT_STRATEGY: none
+  allow_failure: true
+  services:
+    - name: $CLAIR_DB_IMAGE
+      alias: clair-vulnerabilities-db
+  script:
+    - |
+      if [[ -z "$CI_COMMIT_TAG" ]]; then
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG}-nginx
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_SHA}
+      else
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}-nginx
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
+      fi
+    - /analyzer run
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  except:
+    variables:
+      - $CONTAINER_SCANNING_DISABLED
+  tags:
+    - server
+
+container_scanning_code_server:
+  stage: test
+  image: registry.gitlab.com/gitlab-org/security-products/analyzers/klar:$CS_MAJOR_VERSION
+  variables:
+    # By default, use the latest clair vulnerabilities database, however, allow it to be overridden here with a specific image
+    # to enable container scanning to run offline, or to provide a consistent list of vulnerabilities for integration testing purposes
+    CLAIR_DB_IMAGE_TAG: "latest"
+    CLAIR_DB_IMAGE: "arminc/clair-db:$CLAIR_DB_IMAGE_TAG"
+    # Override the GIT_STRATEGY variable in your `.gitlab-ci.yml` file and set it to `fetch` if you want to provide a `clair-whitelist.yml`
+    # file. See https://docs.gitlab.com/ee/user/application_security/container_scanning/index.html#overriding-the-container-scanning-template
+    # for details
+    GIT_STRATEGY: none
+  allow_failure: true
+  services:
+    - name: $CLAIR_DB_IMAGE
+      alias: clair-vulnerabilities-db
+  script:
+    - |
+      if [[ -z "$CI_COMMIT_TAG" ]]; then
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG}-code-server
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_SHA}
+      else
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}-code-server
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
+      fi
+    - /analyzer run
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  except:
+    variables:
+      - $CONTAINER_SCANNING_DISABLED
+  tags:
+    - server
+
 
 deploy:
   stage: deploy
-  image: captnbp/gitlab-ci-image:v2.0
+  image: captnbp/gitlab-ci-image:v2.1
   variables:
     RELEASE: jhub
     NAMESPACE: jhub
@@ -73,5 +151,7 @@ deploy:
     - export JUPYTERHUB_PROXY_TOKEN=$(openssl rand -hex 32)
     - envsubst < code-server/helm/config.yaml > config.yaml
     - helm upgrade --install $RELEASE jupyterhub/jupyterhub --namespace $NAMESPACE --version=1.1.0 --values config.yaml
+  tags:
+    - server
 
 ...
