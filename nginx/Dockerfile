@@ -2,4 +2,5 @@ FROM    nginx:alpine
 
 COPY	./nginx.conf	/etc/nginx/nginx.conf
 
-RUN     chown -R nginx:root /var/cache/nginx/ && chmod -R 770 /var/cache/nginx
+RUN     chmod -R 770 /var/cache/nginx
+RUN     mkdir /var/run && chmod 777 /var/run
