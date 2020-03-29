@@ -55,7 +55,7 @@ docker-build-nginx:
 
 deploy:
   stage: deploy
-  image: captnbp/gitlab-ci-image:latest
+  image: captnbp/gitlab-ci-image:v2.0
   variables:
     RELEASE: jhub
     NAMESPACE: jhub
