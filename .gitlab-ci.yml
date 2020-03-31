@@ -2,15 +2,14 @@
 image: alpine:latest
 
 variables:
-  # KUBE_INGRESS_BASE_DOMAIN is the application deployment domain and should be set as a variable at the group or project level.
-  # KUBE_INGRESS_BASE_DOMAIN: domain.example.com
-
   DOCKER_DRIVER: overlay2
   ROLLOUT_RESOURCE_TYPE: deployment
   DOCKER_TLS_CERTDIR: ""  # https://gitlab.com/gitlab-org/gitlab-runner/issues/4501
 
   CS_MAJOR_VERSION: 2
   CONTAINER_SCANNING_DISABLED: "False"
+  
+  JUPYTERHUB_CHART_VERSION: 0.8.2
 
 stages:
   - build
@@ -19,7 +18,6 @@ stages:
 
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/gitlab/ci/templates/Jobs/Code-Quality.gitlab-ci.yml
-  #- template: Container-Scanning.gitlab-ci.yml # https://docs.gitlab.com/ee/user/application_security/container_scanning/
 
 docker-build-code-server:
   stage: build
@@ -60,6 +58,15 @@ docker-build-nginx:
   tags:
     - server
 
+code_quality:
+  stage: test
+  tags:
+    - server
+  only:
+    - branches
+  except:
+    - master
+
 container_scanning_nginx:
   stage: test
   image: registry.gitlab.com/gitlab-org/security-products/analyzers/klar:$CS_MAJOR_VERSION
@@ -89,11 +96,12 @@ container_scanning_nginx:
   artifacts:
     reports:
       container_scanning: gl-container-scanning-report.json
-  except:
-    variables:
-      - $CONTAINER_SCANNING_DISABLED
   tags:
     - server
+  only:
+    - branches
+  except:
+    - master
 
 container_scanning_code_server:
   stage: test
@@ -124,20 +132,23 @@ container_scanning_code_server:
   artifacts:
     reports:
       container_scanning: gl-container-scanning-report.json
-  except:
-    variables:
-      - $CONTAINER_SCANNING_DISABLED
   tags:
     - server
+  only:
+    - branches
+  except:
+    - master
 
-
-deploy:
+deploy_review:
   stage: deploy
   image: captnbp/gitlab-ci-image:v2.1
   variables:
-    RELEASE: jhub
-    NAMESPACE: jhub
-    JUPYTERHUB_CHART_VERSION: 0.8.2
+    URL: ${CI_ENVIRONMENT_SLUG}.k8s.doca.ovh
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://${CI_ENVIRONMENT_SLUG}.k8s.doca.ovh
+    on_stop: stop_review
+    auto_stop_in: 1 day
   script:
     - |
       if [[ -z "$CI_COMMIT_TAG" ]]; then
@@ -151,10 +162,68 @@ deploy:
     - helm repo update
     - export JUPYTERHUB_PROXY_TOKEN=$(openssl rand -hex 32)
     - envsubst < code-server/helm/config.yaml > config.yaml
-    - helm upgrade --install $RELEASE jupyterhub/jupyterhub --namespace $NAMESPACE --version=$JUPYTERHUB_CHART_VERSION --values config.yaml
+    - envsubst < code-server/helm/namespace.yaml > namespace.yaml
+    - kubectl apply -f namespace.yaml
+    - helm upgrade --install ${CI_ENVIRONMENT_SLUG} jupyterhub/jupyterhub --namespace ${KUBE_NAMESPACE} --version=${JUPYTERHUB_CHART_VERSION} --values config.yaml
     - |
-      kubectl patch deploy -n $NAMESPACE hub --type json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value": ["bash", "-c", "\nmkdir -p ~/hotfix\ncp -r /usr/local/lib/python3.6/dist-packages/kubespawner ~/hotfix\nls -R ~/hotfix\npatch ~/hotfix/kubespawner/spawner.py << EOT\n72c72\n<             key=lambda x: x.last_timestamp,\n---\n>             key=lambda x: x.last_timestamp and x.last_timestamp.timestamp() or 0.,\nEOT\n\nPYTHONPATH=$HOME/hotfix jupyterhub --config /srv/jupyterhub_config.py --upgrade-db\n"]}]'
+      kubectl patch deploy -n ${KUBE_NAMESPACE} hub --type json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value": ["bash", "-c", "\nmkdir -p ~/hotfix\ncp -r /usr/local/lib/python3.6/dist-packages/kubespawner ~/hotfix\nls -R ~/hotfix\npatch ~/hotfix/kubespawner/spawner.py << EOT\n72c72\n<             key=lambda x: x.last_timestamp,\n---\n>             key=lambda x: x.last_timestamp and x.last_timestamp.timestamp() or 0.,\nEOT\n\nPYTHONPATH=$HOME/hotfix jupyterhub --config /srv/jupyterhub_config.py --upgrade-db\n"]}]'
+    - kubectl delete -n ${KUBE_NAMESPACE} pod -l component=hub,release=${CI_ENVIRONMENT_SLUG},app=jupyterhub
   tags:
     - server
+  only:
+    - branches
+  except:
+    - master
 
+stop_review:
+  stage: deploy
+  image: captnbp/gitlab-ci-image:v2.1
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop
+  script:
+    - echo "Remove review app"
+    - helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+    - helm repo update
+    - helm uninstall ${CI_ENVIRONMENT_SLUG} --namespace ${KUBE_NAMESPACE}
+    - kubectl delete namespace ${KUBE_NAMESPACE}
+  when: manual
+  tags:
+    - server
+  only:
+    - branches
+  except:
+    - master
+
+deploy_prod:
+  stage: deploy
+  image: captnbp/gitlab-ci-image:v2.1
+  variables:
+    URL: code-hub.k8s.doca.ovh
+  environment:
+    name: prod
+    url: https://code-hub.k8s.doca.ovh
+  script:
+    - |
+      if [[ -z "$CI_COMMIT_TAG" ]]; then
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG}
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_SHA}
+      else
+        export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
+        export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_TAG}
+      fi
+    - helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+    - helm repo update
+    - export JUPYTERHUB_PROXY_TOKEN=$(openssl rand -hex 32)
+    - envsubst < code-server/helm/config.yaml > config.yaml
+    - envsubst < code-server/helm/namespace.yaml > namespace.yaml
+    - kubectl apply -f namespace.yaml
+    - helm upgrade --install ${CI_ENVIRONMENT_SLUG} jupyterhub/jupyterhub --namespace code-hub-prod --version=${JUPYTERHUB_CHART_VERSION} --values config.yaml
+    - |
+      kubectl patch deploy -n code-hub-prod hub --type json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value": ["bash", "-c", "\nmkdir -p ~/hotfix\ncp -r /usr/local/lib/python3.6/dist-packages/kubespawner ~/hotfix\nls -R ~/hotfix\npatch ~/hotfix/kubespawner/spawner.py << EOT\n72c72\n<             key=lambda x: x.last_timestamp,\n---\n>             key=lambda x: x.last_timestamp and x.last_timestamp.timestamp() or 0.,\nEOT\n\nPYTHONPATH=$HOME/hotfix jupyterhub --config /srv/jupyterhub_config.py --upgrade-db\n"]}]'
+    - kubectl delete -n code-hub-prod pod -l component=hub,release=${CI_ENVIRONMENT_SLUG},app=jupyterhub
+  tags:
+    - server
+  only:
+    - master
 ...

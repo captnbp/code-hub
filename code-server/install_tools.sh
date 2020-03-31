@@ -2,57 +2,30 @@
 cd /tmp
 DEBIAN_FRONTEND=noninteractive
 
+echo "Install tools"
+apt-get update >/dev/null
+apt-get dist-upgrade -y
+apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline htop software-properties-common gpg
+
+echo "Install Oh My Zsh"
+sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+mv /root/.oh-my-zsh /usr/share/oh-my-zsh
+
+
 echo "Install kubectl"
 curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl >/dev/null
 chmod +x /tmp/kubectl
 mv -f /tmp/kubectl /usr/local/bin/kubectl
 
 echo "Install helm"
-HELM_INSTALL_DIR="/usr/local/bin"
-ARCH="amd64"
 latest_release_url="https://github.com/helm/helm/releases"
 TAG=$(curl -Ls $latest_release_url | grep 'href="/helm/helm/releases/tag/v3.' | grep -v no-underline | head -n 1 | cut -d '"' -f 2 | awk '{n=split($NF,a,"/");print a[n]}' | awk 'a !~ $0{print}; {a=$0}')
-OS=$(echo `uname`|tr '[:upper:]' '[:lower:]')
-HELM_DIST="helm-$TAG-$OS-$ARCH.tar.gz"
-DOWNLOAD_URL="https://get.helm.sh/$HELM_DIST"
-CHECKSUM_URL="$DOWNLOAD_URL.sha256"
-HELM_TMP_ROOT="$(mktemp -dt helm-installer-XXXXXX)"
-HELM_TMP_FILE="$HELM_TMP_ROOT/$HELM_DIST"
-HELM_SUM_FILE="$HELM_TMP_ROOT/$HELM_DIST.sha256"
-echo "Downloading $DOWNLOAD_URL"
-if type "curl" > /dev/null; then
-  curl -SsL "$CHECKSUM_URL" -o "$HELM_SUM_FILE"
-elif type "wget" > /dev/null; then
-  wget -q -O "$HELM_SUM_FILE" "$CHECKSUM_URL"
-fi
-if type "curl" > /dev/null; then
-  curl -SsL "$DOWNLOAD_URL" -o "$HELM_TMP_FILE"
-elif type "wget" > /dev/null; then
-  wget -q -O "$HELM_TMP_FILE" "$DOWNLOAD_URL"
-fi
-# installFile verifies the SHA256 for the file, then unpacks and
-# installs it.
-HELM_TMP="$HELM_TMP_ROOT/helm"
-sum=$(openssl sha1 -sha256 ${HELM_TMP_FILE} | awk '{print $2}')
-expected_sum=$(cat ${HELM_SUM_FILE})
-if [ "$sum" != "$expected_sum" ]; then
-  echo "SHA sum of ${HELM_TMP_FILE} does not match. Aborting."
-  exit 1
-fi
-mkdir -p "$HELM_TMP"
-tar xf "$HELM_TMP_FILE" -C "$HELM_TMP"
-HELM_TMP_BIN="$HELM_TMP/$OS-$ARCH/helm"
-echo "Preparing to install helm into ${HELM_INSTALL_DIR}"
-cp "$HELM_TMP_BIN" "$HELM_INSTALL_DIR"
-echo "helm installed into $HELM_INSTALL_DIR/helm"
-
-echo "Install tools"
-apt-get update >/dev/null
-apt-get install -y vim pwgen jq wget unzip pass zsh fonts-powerline htop software-properties-common gpg
-
-echo "Install Oh My Zsh"
-sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-mv /root/.oh-my-zsh /usr/share/oh-my-zsh
+wget "https://get.helm.sh/helm-$TAG-linux-amd64.tar.gz" -O /tmp/helm.tar.gz >/dev/null
+tar zxf /tmp/helm.tar.gz >/dev/null
+mv -f /tmp/linux-amd64/helm /usr/local/bin/helm
+chown 755 /usr/local/bin/helm
+rm /tmp/helm.tar.gz
+rm -Rf /tmp/linux-amd64/
 
 echo "Install Packer"
 latest_release_url="https://github.com/hashicorp/packer/releases"

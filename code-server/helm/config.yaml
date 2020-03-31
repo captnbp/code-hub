@@ -1,6 +1,41 @@
+ingress:
+  enabled: true
+  annotations:
+    # add an annotation indicating the issuer to use.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+    app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
+  hosts:
+    - ${URL}
+  tls:
+    - hosts:
+        - ${URL}
+      secretName: ${CI_ENVIRONMENT_SLUG}-tls-jhub
 proxy:
   secretToken: "${JUPYTERHUB_PROXY_TOKEN}"
+  service:
+    type: ClusterIP
+    annotations:
+      app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+      app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
+hub:
+  db:
+    annotations:
+      app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+      app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
+    pvc:
+      annotations:
+        app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+        app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
+  service:
+    annotations:
+      app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+      app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
+
 singleuser:
+  extraAnnotations:
+    app.gitlab.com/app: ${CI_PROJECT_PATH_SLUG}
+    app.gitlab.com/env: ${CI_ENVIRONMENT_SLUG}
   # Mandatory for Bare Metal installation
   cloudMetadata:
     enabled: true
