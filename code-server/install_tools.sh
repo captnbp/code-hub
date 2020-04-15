@@ -91,7 +91,8 @@ echo "Set shell to zsh"
 chsh -s /usr/bin/zsh
 chsh -s /usr/bin/zsh coder
 
-echo "export ZSH_CACHE_DIR=/tmp"
+echo "mkdir -p \$HOME/.oh-my-zsh/cache" >> /etc/zsh/zshrc
+echo "export ZSH_CACHE_DIR=\$HOME/.oh-my-zsh/cache" >> /etc/zsh/zshrc
 echo "plugins=(git docker ansible helm kubectl terraform)" >> /etc/zsh/zshrc
 echo "ZSH_THEME=robbyrussell" >> /etc/zsh/zshrc
 echo "export ZSH=/usr/share/oh-my-zsh" >> /etc/zsh/zshrc
@@ -102,9 +103,9 @@ echo "complete -o nospace -C /usr/local/bin/terraform terraform" >> /etc/zsh/zsh
 echo "complete -o nospace -C /usr/local/bin/vault vault" >> /etc/zsh/zshrc
 
 echo "Install docker"
-/usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh  >/dev/null
-usermod -aG docker coder
+#/usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
+#sh get-docker.sh  >/dev/null
+#usermod -aG docker coder
 latest_release_url="https://github.com/docker/compose/releases"
 TAG=$(curl -Ls $latest_release_url | grep 'href="/docker/compose/releases/tag/' | grep -v no-underline | grep -v rc | head -n 1 | cut -d '"' -f 2 | awk '{n=split($NF,a,"/");print a[n]}' | awk 'a !~ $0{print}; {a=$0}')
 curl ${CURL_OPTS} -L https://github.com/docker/compose/releases/download/${TAG}/docker-compose-`uname -s`-`uname -m` \
